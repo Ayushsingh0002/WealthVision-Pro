@@ -1,0 +1,11 @@
+﻿__pycache__/
+*.py[cod]
+.pytest_cache/
+wealthvision.db
+wealthvision.db-shm
+wealthvision.db-wal
+.env
+venv/
+.venv/
+.agents/
+test_output.txt

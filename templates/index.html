@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>WealthVision Pro</title>
+  <link rel="stylesheet" href="/static/css/style.css" />
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <!-- Lightweight date adapter for Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+</head>
+<body>
+
+<div class="app-shell">
+
+  <!-- ════════════════════════════════ SIDEBAR ════════════════════════════════ -->
+  <aside class="app-sidebar">
+    <div class="sidebar-section">
+      <div class="sidebar-label">Portfolio</div>
+      <select class="portfolio-select" id="portfolioSelect">
+        <option value="">— select —</option>
+      </select>
+    </div>
+
+    <div class="sidebar-divider"></div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-label">Actions</div>
+    </div>
+
+    <button class="sidebar-btn primary" id="btnNewPortfolio">➕ New Portfolio</button>
+    <div class="new-portfolio-form" id="newPortfolioForm">
+      <input type="text" id="newPortfolioName" class="form-input" placeholder="Portfolio name…" />
+      <button class="btn btn-primary btn-full btn-sm" id="btnCreatePortfolio">Create</button>
+    </div>
+
+    <button class="sidebar-btn" id="btnLoadDemo">📊 Load Demo Data</button>
+    <button class="sidebar-btn" id="btnRefreshData">🔄 Refresh Market Data</button>
+    <button class="sidebar-btn" id="btnExportCSV">📤 Export CSV</button>
+
+    <div id="deletePortfolioSection" style="display:none">
+      <button class="sidebar-btn danger" id="btnDeletePortfolio">🗑️ Delete Portfolio</button>
+    </div>
+
+    <div class="sidebar-divider"></div>
+
+    <div class="sidebar-bottom">
+      <div class="ai-status">
+        <div class="ai-dot" id="aiDot"></div>
+        <span id="aiStatusText">AI Assistant: checking…</span>
+      </div>
+      <div class="data-freshness" id="dataFreshness"></div>
+    </div>
+  </aside>
+
+  <!-- ════════════════════════════════ HEADER ════════════════════════════════ -->
+  <header class="app-header">
+    <div class="header-brand">
+      <span class="gem">💎</span>
+      <h1>WealthVision Pro</h1>
+      <span class="header-badge">PREMIUM ANALYTICS</span>
+    </div>
+    <div class="header-right">
+      <span class="header-status" id="headerStatus">Delayed / EOD data</span>
+    </div>
+  </header>
+
+  <!-- ════════════════════════════════ MAIN ════════════════════════════════ -->
+  <main class="app-main" id="appMain">
+
+    <!-- No portfolio selected -->
+    <div id="noPortfolioState" class="empty-state">
+      <div class="empty-icon">💎</div>
+      <h3>Your Portfolio Awaits</h3>
+      <p>Create a portfolio in the sidebar, load demo data, or import a CSV file to get started.</p>
+      <button class="btn btn-primary" id="btnGetStarted" style="margin-top:8px">📊 Load Demo Portfolio</button>
+    </div>
+
+    <!-- Main dashboard (shown when portfolio selected) -->
+    <div id="dashboardArea" style="display:none">
+
+      <!-- Tab nav -->
+      <div class="tab-nav">
+        <button class="tab-btn active" data-tab="dashboard">📊 Dashboard</button>
+        <button class="tab-btn" data-tab="risk">📉 Risk Analytics</button>
+        <button class="tab-btn" data-tab="scenario">🔮 Scenario</button>
+        <button class="tab-btn" data-tab="ai">🤖 AI Assistant</button>
+      </div>
+
+      <!-- ─── TAB: DASHBOARD ─────────────────────────────────────── -->
+      <div class="tab-panel active" id="tab-dashboard">
+
+        <!-- KPI row -->
+        <div class="kpi-grid" id="kpiGrid">
+          <div class="kpi-card"><div class="kpi-label">Net Worth</div><div class="kpi-value" id="kpiValue">—</div><div class="kpi-sub" id="kpiPnl">—</div></div>
+          <div class="kpi-card"><div class="kpi-label">Total Return</div><div class="kpi-value" id="kpiReturn">—</div><div class="kpi-sub" id="kpiDailyPnl">—</div></div>
+          <div class="kpi-card"><div class="kpi-label">Risk Level</div><div class="kpi-value" id="kpiRisk">—</div><div class="kpi-sub" id="kpiRiskScore">—</div></div>
+          <div class="kpi-card"><div class="kpi-label">Volatility</div><div class="kpi-value purple" id="kpiVol">—</div><div class="kpi-sub">Annualised</div></div>
+          <div class="kpi-card"><div class="kpi-label">Sharpe Ratio</div><div class="kpi-value accent" id="kpiSharpe">—</div><div class="kpi-sub">Portfolio level</div></div>
+        </div>
+
+        <!-- Charts row -->
+        <div class="dashboard-grid">
+          <div class="card">
+            <div class="section-head">Portfolio Performance <span id="perfSubtitle"></span></div>
+            <div class="chart-period-btns">
+              <button class="period-btn" data-period="30">1M</button>
+              <button class="period-btn" data-period="90">3M</button>
+              <button class="period-btn" data-period="180">6M</button>
+              <button class="period-btn active" data-period="365">1Y</button>
+            </div>
+            <div class="chart-wrapper" style="height:280px">
+              <canvas id="perfChart"></canvas>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="section-head">Allocation</div>
+            <div class="chart-wrapper" style="height:280px; display:flex; align-items:center; justify-content:center;">
+              <canvas id="allocChart" style="max-height:260px; max-width:260px;"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <!-- Sector + Insights -->
+        <div class="bottom-grid">
+          <div class="card">
+            <div class="section-head">Sector Exposure</div>
+            <div id="sectorBars"></div>
+          </div>
+
+          <div class="card">
+            <div class="section-head">🔍 Rule-Based Analysis</div>
+            <div class="insight-list" id="insightList"></div>
+          </div>
+        </div>
+
+        <!-- Add position + Holdings table -->
+        <div class="add-panel">
+          <!-- Add position form -->
+          <div class="card">
+            <div class="section-head">Add Position</div>
+            <div class="form-group">
+              <label class="form-label">Ticker Symbol</label>
+              <input type="text" id="addSymbol" class="form-input" placeholder="e.g. AAPL, HDFCBANK.NS" autocomplete="off" />
+              <div class="form-hint">Indian stocks: add .NS (NSE) or .BO (BSE)</div>
+              <div class="form-error" id="symbolError"></div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">Shares</label>
+                <input type="number" id="addShares" class="form-input" placeholder="10" min="0.001" step="any" />
+              </div>
+              <div class="form-group">
+                <label class="form-label">Purchase Price</label>
+                <input type="number" id="addCost" class="form-input" placeholder="150.00" min="0.01" step="any" />
+              </div>
+            </div>
+            <button class="btn btn-primary btn-full" id="btnAddHolding">
+              <span id="addBtnText">Add to Portfolio →</span>
+              <span id="addBtnSpinner" class="spinner" style="display:none"></span>
+            </button>
+
+            <!-- CSV import -->
+            <div style="margin-top:16px; padding-top:16px; border-top:1px solid var(--border)">
+              <div class="section-head">Import CSV</div>
+              <label for="csvFileInput" class="btn btn-secondary btn-full" style="margin-bottom:8px; cursor:pointer;">
+                📂 Choose CSV file
+              </label>
+              <input type="file" id="csvFileInput" accept=".csv" style="display:none" />
+              <div class="form-hint">Columns: symbol, shares, cost_basis</div>
+              <div id="csvStatus" style="font-size:12px; margin-top:6px;"></div>
+            </div>
+          </div>
+
+          <!-- Holdings table -->
+          <div class="card" style="overflow:hidden; padding:0;">
+            <div style="padding:18px 20px 12px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between;">
+              <div class="section-head" style="margin:0">Holdings</div>
+              <button class="btn btn-danger btn-sm" id="btnClearAll">🗑️ Clear All</button>
+            </div>
+            <div class="table-wrapper" style="border:none; border-radius:0;">
+              <table id="holdingsTable">
+                <thead>
+                  <tr>
+                    <th>Asset</th>
+                    <th>Price</th>
+                    <th>Value</th>
+                    <th>Weight</th>
+                    <th>P&amp;L</th>
+                    <th>Volatility</th>
+                    <th>Sharpe</th>
+                    <th>Risk %</th>
+                    <th style="text-align:center">Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="holdingsTbody"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+      </div><!-- /tab-dashboard -->
+
+      <!-- ─── TAB: RISK ANALYTICS ────────────────────────────────── -->
+      <div class="tab-panel" id="tab-risk">
+
+        <div class="risk-grid" id="riskKpis">
+          <div class="risk-card"><div class="risk-label">Annualised Vol</div><div class="risk-value purple" id="riskVol">—</div><div class="risk-note">%</div></div>
+          <div class="risk-card"><div class="risk-label">Max Drawdown</div><div class="risk-value negative" id="riskMdd">—</div><div class="risk-note">%</div></div>
+          <div class="risk-card"><div class="risk-label">VaR 95% (1-day)</div><div class="risk-value" style="color:var(--yellow)" id="riskVar">—</div><div class="risk-note">%</div></div>
+          <div class="risk-card"><div class="risk-label">CVaR 95% (1-day)</div><div class="risk-value negative" id="riskCvar">—</div><div class="risk-note">%</div></div>
+        </div>
+
+        <div class="info-note" style="margin-bottom:20px">
+          ℹ️ VaR and CVaR are statistical estimates based on historical returns. They are not guarantees of future losses.
+        </div>
+
+        <div class="bottom-grid" style="margin-bottom:16px">
+          <div class="card">
+            <div class="section-head">Correlation Matrix</div>
+            <div id="correlationArea"><p class="text-muted" style="font-size:13px">Needs ≥ 2 holdings with 30+ trading days.</p></div>
+          </div>
+          <div class="card">
+            <div class="section-head">Risk Contribution by Holding</div>
+            <div class="chart-wrapper" style="height:240px">
+              <canvas id="riskContribChart"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <div class="card" style="margin-bottom:16px">
+          <div class="section-head">Historical Drawdown</div>
+          <div class="chart-wrapper" style="height:220px">
+            <canvas id="drawdownChart"></canvas>
+          </div>
+        </div>
+
+      </div><!-- /tab-risk -->
+
+      <!-- ─── TAB: SCENARIO ──────────────────────────────────────── -->
+      <div class="tab-panel" id="tab-scenario">
+        <div class="disclaimer-banner">
+          ⚠️ <strong>Hypothetical Simulation</strong> — Estimates only. No real holdings are modified.
+        </div>
+
+        <div class="card" style="margin-bottom:16px">
+          <div class="section-head">Adjust Price Assumptions</div>
+          <div class="scenario-sliders" id="scenarioSliders">
+            <p class="text-muted" style="font-size:13px">Load a portfolio to run scenarios.</p>
+          </div>
+          <button class="btn btn-primary" id="btnRunScenario">▶ Run Scenario</button>
+        </div>
+
+        <div class="scenario-results" id="scenarioResults">
+          <div class="scenario-kpi-row">
+            <div class="kpi-card" style="text-align:center">
+              <div class="kpi-label">Simulated Total</div>
+              <div class="kpi-value accent" id="scSimTotal">—</div>
+            </div>
+            <div class="kpi-card" style="text-align:center">
+              <div class="kpi-label">Value Change</div>
+              <div class="kpi-value" id="scImpact">—</div>
+            </div>
+            <div class="kpi-card" style="text-align:center">
+              <div class="kpi-label">% Change</div>
+              <div class="kpi-value" id="scImpactPct">—</div>
+            </div>
+          </div>
+
+          <div class="card" style="padding:0; overflow:hidden">
+            <div class="table-wrapper" style="border:none; border-radius:0">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Symbol</th><th>Adj</th><th>Orig Price</th><th>Sim Price</th>
+                    <th>Sim Value</th><th>Sim P&amp;L</th><th>New Weight</th>
+                  </tr>
+                </thead>
+                <tbody id="scenarioTbody"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div><!-- /tab-scenario -->
+
+      <!-- ─── TAB: AI ASSISTANT ──────────────────────────────────── -->
+      <div class="tab-panel" id="tab-ai">
+        <div class="card ai-chat">
+          <div class="section-head">🤖 Portfolio Assistant <span id="aiModeLabel">Rule-based fallback</span></div>
+          <p style="font-size:12px; color:var(--text-muted); margin-top:-8px">
+            Answers are based on your actual portfolio data. Not financial advice.
+          </p>
+
+          <div class="ai-input-row">
+            <input type="text" id="aiQuestion" class="form-input"
+              placeholder="e.g. What is my portfolio value? Which stock is riskiest?" />
+            <button class="btn btn-primary" id="btnAskAI">Ask →</button>
+          </div>
+
+          <div class="ai-answer" id="aiAnswer"></div>
+
+          <div>
+            <div class="form-label" style="margin-bottom:8px">Try asking:</div>
+            <div class="ai-suggestions">
+              <span class="suggestion-chip">What is my portfolio value?</span>
+              <span class="suggestion-chip">Which stock has the highest volatility?</span>
+              <span class="suggestion-chip">Explain my portfolio risk.</span>
+              <span class="suggestion-chip">Which holdings are losing money?</span>
+              <span class="suggestion-chip">Summarise my performance.</span>
+              <span class="suggestion-chip">What is my Sharpe ratio?</span>
+              <span class="suggestion-chip">What is my sector allocation?</span>
+            </div>
+          </div>
+        </div>
+      </div><!-- /tab-ai -->
+
+    </div><!-- /dashboardArea -->
+
+  </main>
+</div>
+
+<!-- Toast container -->
+<div id="toast-container"></div>
+
+<script src="/static/js/app.js"></script>
+</body>
+</html>
